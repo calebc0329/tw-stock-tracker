@@ -8,7 +8,6 @@ import datetime
 from data_loader import DEFAULT_TICKERS, fetch_ticker_data, normalize_ticker
 from strategy import calculate_indicators, evaluate_signals, get_latest_signal_summary
 from backtest import run_backtest
-from line_notifier import load_line_config, save_line_config, send_line_push_message, format_daily_report_message
 
 # Configure page
 st.set_page_config(
@@ -76,14 +75,6 @@ period_option = st.sidebar.radio(
 )
 
 st.sidebar.markdown("---")
-line_cfg = load_line_config()
-with st.sidebar.expander("📲 LINE 推播通知設定", expanded=True):
-    if line_cfg.get("channel_access_token") and line_cfg.get("user_id"):
-        st.success("LINE 憑證已就緒 ✅")
-    else:
-        st.warning("⚠️ 尚未設定 LINE 憑證")
-    st.caption("可切換至上方 **『📲 LINE 即時推播』** 頁籤設定金鑰與發送測試訊息。")
-
 st.sidebar.markdown("### 💡 使用說明")
 st.sidebar.info(
     "1. 本系統支援台股代碼 (自動補齊 `.TW`) 與美股代碼。\n"
@@ -149,12 +140,11 @@ if summary['risk_warnings']:
         st.warning(w)
 
 # Tabs
-tab1, tab2, tab3, tab4, tab5 = st.tabs([
+tab1, tab2, tab3, tab4 = st.tabs([
     "💡 買賣決策",
     "📈 技術線圖",
     "📊 策略回測",
-    "🔍 標的盤點",
-    "📲 LINE 即時推播"
+    "🔍 標的盤點"
 ])
 
 # ================= TAB 1: Signal & Factors Breakdown =================
@@ -388,135 +378,3 @@ with tab4:
         df_overview = pd.DataFrame(overview_data)
         st.dataframe(df_overview, width="stretch", hide_index=True)
         st.info("💡 觀察小技巧：若標的『多空評分 > +20』且『同時站上月線與季線』，代表該族群處於多方強勢控盤波段。")
-
-# ================= TAB 5: LINE Notification Setup =================
-with tab5:
-    st.subheader("📲 LINE Messaging API 即時推播設定")
-    
-    st.markdown("""
-    > ⚠️ **注意**：LINE Notify 官方服務已於 2025 年 3 月 31 日正式終止。本系統已全面升級為官方推薦的 **LINE Messaging API (官方帳號)** 推播機制！
-    """)
-    
-    col_guide, col_form = st.columns([1, 1])
-    
-    with col_guide:
-        st.markdown("### 📖 3 分鐘快速取得 LINE API 金鑰")
-        st.markdown("""
-        1. 前往 **[LINE Developers Console](https://developers.line.biz/)** 並使用您的 LINE 帳號登入。
-        2. 點擊 **Create a new provider** (隨意命名，如 `StockTracker`)。
-        3. 點擊 **Create a Messaging API channel**，填寫頻道名稱與信箱後送出建立。
-        4. 進入該 Channel：
-           - 切換至 **Messaging API** 頁籤，滾動至最底部點選 **Issue** 產生 **Channel access token (long-lived)**。
-           - 掃描頁面上的 **QR Code**，將您的 LINE 官方帳號加為好友。
-           - 切換至 **Basic settings** 頁籤，滾動至最底部複製 **Your user ID**（格式如 `U1234567...`）。
-        5. 將這兩組字串填入右側欄位並儲存即可！
-        """)
-        
-    with col_form:
-        st.markdown("### ⚙️ 憑證設定")
-        cur_cfg = load_line_config()
-        
-        with st.form("line_config_form"):
-            token_input = st.text_input(
-                "Channel Access Token (Long-lived):",
-                value=cur_cfg.get("channel_access_token", ""),
-                type="password",
-                help="在 LINE Developers 的 Messaging API 頁籤最下方產生"
-            )
-            user_id_input = st.text_input(
-                "Your User ID:",
-                value=cur_cfg.get("user_id", ""),
-                help="在 Basic settings 頁籤最下方的 Your user ID (以 U 開頭)"
-            )
-            only_sig = st.checkbox(
-                "僅在觸發買進 / 賣出訊號時才推播 (平時觀望不打擾)",
-                value=cur_cfg.get("notify_only_on_signals", False)
-            )
-            
-            save_btn = st.form_submit_button("💾 儲存 LINE 設定")
-            if save_btn:
-                if not token_input or not user_id_input:
-                    st.error("請完整輸入 Token 與 User ID！")
-                else:
-                    ok = save_line_config(
-                        token_input,
-                        user_id_input,
-                        dashboard_url="https://tw-stock-tracker-klbx9enyxbnwlfs8ztvapa.streamlit.app/",
-                        notify_only_on_signals=only_sig,
-                        enabled=True
-                    )
-                    if ok:
-                        st.success("✅ 設定已成功儲存！")
-                        st.rerun()
-                    else:
-                        st.error("儲存失敗，請檢查檔案權限。")
-                        
-        st.markdown("---")
-        st.markdown("### 🧪 測試與即時發送")
-        
-        all_line_opts = list(DEFAULT_TICKERS.keys())
-        def_line = [s for s in ["0050.TW", "009800.TW", "2330.TW", "00631L.TW", "2454.TW", "2317.TW"] if s in all_line_opts]
-        line_target_symbols = st.multiselect(
-            "選擇發送至 LINE 的標的清單：",
-            options=all_line_opts,
-            default=def_line
-        )
-        
-        c_test1, c_test2 = st.columns(2)
-        
-        with c_test1:
-            if st.button("🔔 發送連線測試訊息"):
-                if not cur_cfg.get("channel_access_token") or not cur_cfg.get("user_id"):
-                    st.warning("請先儲存有效的 Token 與 User ID！")
-                else:
-                    test_msg = "🔔【台股 ETF & 個股追蹤系統】LINE 推播串接測試成功！您將能收到即時買賣決策通知。"
-                    ok, msg = send_line_push_message(test_msg)
-                    if ok:
-                        st.success("✅ 測試訊息已成功送達您的 LINE！")
-                    else:
-                        st.error(f"❌ 發送失敗: {msg}")
-                        
-        with c_test2:
-            if st.button("🚀 立即推播所選標的完整簡報"):
-                if not cur_cfg.get("channel_access_token") or not cur_cfg.get("user_id"):
-                    st.warning("請先儲存有效的 Token 與 User ID！")
-                elif not line_target_symbols:
-                    st.warning("請至少選擇一檔標的！")
-                else:
-                    with st.spinner("正在彙整最新盤後訊號..."):
-                        summaries = []
-                        for sym in line_target_symbols:
-                            d_r, m_i, _ = fetch_ticker_data(sym, period="1y")
-                            if d_r is not None and not d_r.empty:
-                                d_calc = calculate_indicators(d_r)
-                                d_ev = evaluate_signals(d_calc, strategy_type=strategy_mode)
-                                sm = get_latest_signal_summary(d_ev, m_i, strategy_type=strategy_mode)
-                                summaries.append({
-                                    "symbol": sym,
-                                    "name": m_i["name"],
-                                    "current_price": m_i["current_price"],
-                                    "change_pct": m_i["change_pct"],
-                                    "label": sm["label"],
-                                    "score": sm["score"],
-                                    "stop_loss": sm["stop_loss"],
-                                    "take_profit": sm["take_profit"]
-                                })
-                        if summaries:
-                            report_text = format_daily_report_message(summaries)
-                            ok, msg = send_line_push_message(report_text)
-                            if ok:
-                                st.success("✅ 最新簡報已成功推播至您的 LINE！")
-                            else:
-                                st.error(f"❌ 推播失敗: {msg}")
-
-    st.markdown("---")
-    st.subheader("⏰ 每日收盤自動推播 (自動排程設定)")
-    st.markdown("""
-    台股每日於 **13:30** 收盤，您可以讓系統在每個營業日 **14:00** 自動執行分析並將通知送至您的 LINE。
-    
-    在 Mac 終端機執行 `crontab -e` 並加入以下排程指令即可：
-    ```bash
-    # 每週一至週五下午 14:00 自動推播盤後 ETF 買賣決策日報
-    0 14 * * 1-5 /Users/calebchen/.gemini/antigravity/scratch/tw-etf-tracker/.venv/bin/python /Users/calebchen/.gemini/antigravity/scratch/tw-etf-tracker/daily_alert.py >> /Users/calebchen/.gemini/antigravity/scratch/tw-etf-tracker/cron.log 2>&1
-    ```
-    """)

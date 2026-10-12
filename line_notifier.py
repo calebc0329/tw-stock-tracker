@@ -1,5 +1,6 @@
 import json
 import os
+import datetime
 import requests
 from typing import Dict, List, Optional
 
@@ -150,8 +151,23 @@ def format_daily_report_message(summaries: List[Dict], dashboard_url: Optional[s
 
 def format_signal_alert_message(signal_items: List[Dict], dashboard_url: Optional[str] = None) -> str:
     """Format notification specifically for triggered buy/sell timing events."""
+    tz_taipei = datetime.timezone(datetime.timedelta(hours=8))
+    now_taipei = datetime.datetime.now(tz_taipei)
+    time_str = now_taipei.strftime("%m/%d %H:%M")
+    
+    hr = now_taipei.hour
+    if hr < 11:
+        session_tag = "早盤巡檢 10:00"
+    elif hr < 13:
+        session_tag = "盤中巡檢 12:00"
+    elif hr <= 15:
+        session_tag = "盤後結算 14:00"
+    else:
+        session_tag = "即時巡檢"
+
     lines = [
         "🚨【台股關鍵買賣時機點觸發快報】",
+        f"⏰ 巡檢時間：{time_str} ({session_tag})",
         "━━━━━━━━━━━━━━━",
         f"⚡ 系統偵測到以下標的觸發關鍵進出場時機：\n"
     ]
