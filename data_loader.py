@@ -1,7 +1,19 @@
+import json
+import os
 import yfinance as yf
 import pandas as pd
 import streamlit as st
 from datetime import datetime
+
+# Load full Taiwan stock database (TWSE + TPEx, 2,000+ stocks)
+TW_STOCK_MAP_FILE = os.path.join(os.path.dirname(__file__), "tw_stock_names.json")
+TW_STOCKS_DB = {}
+if os.path.exists(TW_STOCK_MAP_FILE):
+    try:
+        with open(TW_STOCK_MAP_FILE, "r", encoding="utf-8") as f:
+            TW_STOCKS_DB = json.load(f)
+    except Exception:
+        pass
 
 # Default Taiwan & US ETFs/Stocks
 DEFAULT_TICKERS = {
@@ -45,10 +57,25 @@ DEFAULT_TICKERS = {
 }
 
 def normalize_ticker(symbol: str) -> str:
-    """Normalize user input symbol to yfinance format."""
+    """Normalize user input symbol or name to yfinance format (.TW or .TWO)."""
     s = symbol.strip().upper()
     if s in DEFAULT_TICKERS:
         return s
+    if s in TW_STOCKS_DB:
+        return s
+        
+    # Check if raw code matches in TW_STOCKS_DB (e.g. "3293" -> "3293.TWO", "2609" -> "2609.TW")
+    raw_code = s.split(".")[0]
+    for full_sym, info in TW_STOCKS_DB.items():
+        if info.get("code") == raw_code:
+            return full_sym
+            
+    # Check if user typed Chinese name (e.g. "陽明", "鈊象", "長榮航")
+    for full_sym, info in TW_STOCKS_DB.items():
+        name_val = info.get("name", "")
+        if s == name_val or (len(s) >= 2 and (s in name_val or name_val in s)):
+            return full_sym
+            
     # If 4-6 digits or ends with L/R without extension, default to .TW
     if s.isdigit() or (s[:-1].isdigit() and s[-1] in ['L', 'R']):
         return f"{s}.TW"
@@ -89,12 +116,19 @@ def fetch_ticker_data(symbol: str, period: str = "2y"):
             curr_price = float(df['Close'].iloc[-1])
             prev_close = float(df['Close'].iloc[-2] if len(df) > 1 else curr_price)
             
+        stock_db_entry = TW_STOCKS_DB.get(norm_sym, {})
+        def_entry = DEFAULT_TICKERS.get(norm_sym, {})
+        
+        display_name = def_entry.get("name") or stock_db_entry.get("name") or norm_sym
+        display_type = def_entry.get("type") or (stock_db_entry.get("market", "") + "個股" if stock_db_entry else "股票 / ETF")
+        display_desc = def_entry.get("desc") or f"全台股自由查詢標的 ({norm_sym})"
+        
         meta = {
             "symbol": norm_sym,
             "raw_symbol": symbol,
-            "name": DEFAULT_TICKERS.get(norm_sym, {}).get("name", norm_sym),
-            "type": DEFAULT_TICKERS.get(norm_sym, {}).get("type", "股票 / ETF"),
-            "desc": DEFAULT_TICKERS.get(norm_sym, {}).get("desc", ""),
+            "name": display_name,
+            "type": display_type,
+            "desc": display_desc,
             "current_price": curr_price,
             "prev_close": prev_close,
             "change": curr_price - prev_close,

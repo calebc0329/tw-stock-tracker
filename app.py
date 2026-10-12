@@ -47,15 +47,24 @@ else:
         filtered_keys = list(DEFAULT_TICKERS.keys())
 
 selected_preset = st.sidebar.selectbox(
-    "選擇追蹤標的：",
+    "⭐ 核心精選追蹤清單：",
     options=filtered_keys,
     format_func=lambda k: f"{k} - {DEFAULT_TICKERS[k]['name']} ({DEFAULT_TICKERS[k]['type']})",
     index=0
 )
 
-# Custom ticker input option
-custom_input = st.sidebar.text_input("🔍 或輸入自訂代碼 (如 2317, 2454, AAPL)：", "").strip()
+# Custom ticker input option - supports all Taiwan & US stocks by code or name
+custom_input = st.sidebar.text_input(
+    "🔍 或輸入自訂代碼 / 名稱 (全台股支援)：",
+    "",
+    placeholder="如: 2609, 3293, 鈊象, 陽明, NVDA",
+    help="支援輸入任何上市/上櫃代碼 (自動辨識 .TW 或 .TWO) 或輸入中文公司名稱！"
+).strip()
+
 active_symbol = custom_input if custom_input else selected_preset
+if custom_input:
+    norm_preview = normalize_ticker(custom_input)
+    st.sidebar.caption(f"🎯 已鎖定自訂標的：`{norm_preview}`")
 
 # Strategy mode
 strategy_mode = st.sidebar.selectbox(
@@ -77,9 +86,9 @@ period_option = st.sidebar.radio(
 st.sidebar.markdown("---")
 st.sidebar.markdown("### 💡 使用說明")
 st.sidebar.info(
-    "1. 本系統支援台股代碼 (自動補齊 `.TW`) 與美股代碼。\n"
-    "2. 買賣訊號結合 **均線 (MA20/60)**、**日KD**、**RSI**、**MACD** 與 **乖離率** 綜合評估。\n"
-    "3. 點選上方分頁可檢視『決策分析』、『技術線圖』、『歷史回測』及『多檔橫向比對』。"
+    "1. 網頁支援**全台股 2,000+ 檔標的** (上市 `.TW` / 上櫃 `.TWO`) 與美股自由查詢分析。\n"
+    "2. **LINE 自動推播**專注於您的核心追蹤清單，精準發送時機點，不洗版打擾。\n"
+    "3. 買賣訊號結合 **均線 (MA20/60)**、**日KD**、**RSI**、**MACD** 與 **乖離率** 綜合評估。"
 )
 
 # Fetch Data
