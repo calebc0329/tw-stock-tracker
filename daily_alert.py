@@ -11,7 +11,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 from data_loader import fetch_ticker_data, DEFAULT_TICKERS
 from strategy import calculate_indicators, evaluate_signals, get_latest_signal_summary
-from line_notifier import load_line_config, send_line_push_message, format_daily_report_message
+from line_notifier import load_line_config, send_line_push_message, format_daily_report_message, format_signal_alert_message
 
 DEFAULT_MONITOR_LIST = ["0050.TW", "009800.TW", "2330.TW", "00631L.TW", "2454.TW", "2317.TW"]
 
@@ -43,6 +43,7 @@ def main():
                 "change_pct": meta["change_pct"],
                 "label": summary["label"],
                 "score": summary["score"],
+                "action_text": summary.get("action_text", ""),
                 "stop_loss": summary["stop_loss"],
                 "take_profit": summary["take_profit"]
             })
@@ -56,12 +57,14 @@ def main():
         
     # Check if notify_only_on_signals is enabled
     if cfg.get("notify_only_on_signals", False):
-        has_signal = any("買進" in s["label"] or "賣出" in s["label"] or "調節" in s["label"] for s in summaries)
-        if not has_signal:
-            print("[*] 設定為『僅有買賣訊號時推播』，今日無觸發關鍵買賣訊號，跳過發送。")
+        actionable_signals = [s for s in summaries if "買進" in s["label"] or "賣出" in s["label"] or "調節" in s["label"]]
+        if not actionable_signals:
+            print("[*] 設定為『僅有買賣時機點才推播』，今日所有標的皆處於觀望持有狀態，無關鍵訊號，靜默結束。")
             sys.exit(0)
-            
-    msg = format_daily_report_message(summaries)
+        print(f"[+] 發現 {len(actionable_signals)} 檔標的觸發買賣訊號，準備發送專屬時機快報！")
+        msg = format_signal_alert_message(actionable_signals)
+    else:
+        msg = format_daily_report_message(summaries)
     print("[*] 正在推播至 LINE...")
     ok, res_msg = send_line_push_message(msg)
     if ok:

@@ -21,11 +21,14 @@ def load_line_config() -> dict:
     except Exception:
         pass
 
+    notify_env = os.environ.get("NOTIFY_ONLY_ON_SIGNALS", "")
+    notify_only_val = notify_env.lower() in ("true", "1", "yes") if notify_env else False
+    
     config = {
         "channel_access_token": token,
         "user_id": uid,
         "dashboard_url": url,
-        "notify_only_on_signals": False,
+        "notify_only_on_signals": notify_only_val,
         "enabled": bool(token and uid)
     }
     if os.path.exists(CONFIG_FILE):
@@ -38,7 +41,8 @@ def load_line_config() -> dict:
                     config["user_id"] = saved["user_id"]
                 if saved.get("dashboard_url"):
                     config["dashboard_url"] = saved["dashboard_url"]
-                config["notify_only_on_signals"] = saved.get("notify_only_on_signals", False)
+                if not notify_env:
+                    config["notify_only_on_signals"] = saved.get("notify_only_on_signals", False)
                 config["enabled"] = saved.get("enabled", True)
         except Exception:
             pass
@@ -129,9 +133,10 @@ def format_daily_report_message(summaries: List[Dict], dashboard_url: Optional[s
         icon = "🟢" if "買進" in label else "🔴" if "賣出" in label or "調節" in label else "🟡"
         chg_str = f"+{chg_pct:.2f}%" if chg_pct > 0 else f"{chg_pct:.2f}%"
         
+        clean_lbl = label.replace("🟢", "").replace("🔴", "").replace("🟡", "").split('(')[0].strip()
         lines.append(f"{icon} {name} ({sym})")
         lines.append(f"  現價: ${price:.2f} ({chg_str})")
-        lines.append(f"  決策: {label.split('(')[0].strip()} (評分: {score:+d})")
+        lines.append(f"  決策: {clean_lbl} (評分: {score:+d})")
         lines.append(f"  停損: ${stop_loss:.2f} ｜ 停利: ${take_profit:.2f}")
         lines.append("────────────────")
         
@@ -141,3 +146,45 @@ def format_daily_report_message(summaries: List[Dict], dashboard_url: Optional[s
     lines.append(f"👉 {target_url}")
     
     return "\n".join(lines)
+
+
+def format_signal_alert_message(signal_items: List[Dict], dashboard_url: Optional[str] = None) -> str:
+    """Format notification specifically for triggered buy/sell timing events."""
+    lines = [
+        "🚨【台股關鍵買賣時機點觸發快報】",
+        "━━━━━━━━━━━━━━━",
+        f"⚡ 系統偵測到以下標的觸發關鍵進出場時機：\n"
+    ]
+    
+    for item in signal_items:
+        sym = item.get("symbol", "")
+        name = item.get("name", sym)
+        price = item.get("current_price", 0.0)
+        chg_pct = item.get("change_pct", 0.0)
+        label = item.get("label", "")
+        action_text = item.get("action_text", "")
+        score = int(round(float(item.get("score", 0))))
+        stop_loss = item.get("stop_loss", 0.0)
+        take_profit = item.get("take_profit", 0.0)
+        
+        is_buy = "買進" in label
+        icon = "🟢" if is_buy else "🔴"
+        action_title = "【適合買進 / 進場佈局】" if is_buy else "【建議減碼 / 出場避險】"
+        chg_str = f"+{chg_pct:.2f}%" if chg_pct > 0 else f"{chg_pct:.2f}%"
+        
+        clean_label = label.replace("🟢", "").replace("🔴", "").replace("🟡", "").split('(')[0].strip()
+        lines.append(f"{icon} {action_title} {name} ({sym})")
+        lines.append(f"  • 現價: ${price:.2f} ({chg_str})")
+        lines.append(f"  • 訊號: {clean_label} (評分: {score:+d})")
+        if action_text:
+            lines.append(f"  • 策略建議: {action_text}")
+        lines.append(f"  • 建議價位: 停損 ${stop_loss:.2f} ｜ 停利 ${take_profit:.2f}")
+        lines.append("────────────────")
+        
+    cfg = load_line_config()
+    target_url = dashboard_url or cfg.get("dashboard_url") or "https://tw-stock-tracker-klbx9enyxbnwlfs8ztvapa.streamlit.app/"
+    lines.append("💡 點此查看即時互動圖表與策略回測:")
+    lines.append(f"👉 {target_url}")
+    
+    return "\n".join(lines)
+
