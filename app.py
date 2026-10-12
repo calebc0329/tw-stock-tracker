@@ -149,13 +149,90 @@ if summary['risk_warnings']:
         st.warning(w)
 
 # Tabs
-tab1, tab2, tab3, tab4, tab5 = st.tabs([
+tab_nav, tab1, tab2, tab3, tab4, tab5 = st.tabs([
+    "🏠 系統導航與簡介",
     "💡 買賣決策",
     "📈 技術線圖",
     "📊 策略回測",
     "🔍 標的盤點",
     "📖 新手看盤指南"
 ])
+
+# ================= TAB 0: System Navigation & Introduction =================
+with tab_nav:
+    st.subheader("🏠 歡迎使用【台股 ETF & 個股 智能追蹤與量化決策系統】")
+    
+    st.markdown("""
+    > 💡 **這套系統在幹嘛？**  
+    > 投資最忌諱「憑感覺猜多空」與「情緒化追高殺低」。本系統是專為投資人打造的 **24 小時量化看盤決策助理**，整合多種專業量化模型與經典技術指標，幫您**將複雜的市場數據轉化為 3 秒鐘即刻看懂的客觀買賣訊號與風險防線**。
+    """)
+    
+    st.markdown("### 🧭 五大核心功能導航（點擊上方分頁切換）")
+    
+    col_n1, col_n2, col_n3 = st.columns(3)
+    
+    with col_n1:
+        with st.container(border=True):
+            st.markdown("#### 💡 買賣決策")
+            st.caption("核心綜合評估與進出場建議")
+            st.write("• **多空評分 (-100 ~ +100)**：客觀量化當前強弱")
+            st.write("• **6 大多空因子檢核表**：均線、KD、RSI、MACD 一覽無遺")
+            st.write("• **保命停損停利防線**：根據真實波動度計算科學價位")
+            
+        with st.container(border=True):
+            st.markdown("#### 🔍 標的盤點")
+            st.caption("熱門核心資產多空體檢速查")
+            st.write("• 橫向比較市場核心 ETF 與權值個股")
+            st.write("• 快速篩選站上月季線的多頭領頭羊")
+            st.write("• 一眼看清資金輪動風向")
+
+    with col_n2:
+        with st.container(border=True):
+            st.markdown("#### 📈 技術線圖")
+            st.caption("互動式專業級 K 線分析")
+            st.write("• **MA20 / MA60 / MA120** 多空均線排列")
+            st.write("• **布林通道與日KD、RSI、MACD** 動能副圖")
+            st.write("• **歷史買賣訊號箭頭**：回顧歷史波段進出轉折點")
+            
+        with st.container(border=True):
+            st.markdown("#### 📖 新手看盤指南")
+            st.caption("零基礎也能輕鬆看懂的白話字典")
+            st.write("• 3 秒判讀法 SOP（看燈號 ➔ 看停損 ➔ 看理由）")
+            st.write("• 專有名詞生活化比喻（防護罩、方向燈、橡皮筋）")
+            st.write("• 實戰心態與交易金句")
+
+    with col_n3:
+        with st.container(border=True):
+            st.markdown("#### 📊 策略回測")
+            st.caption("用歷史數據檢驗策略真實勝率")
+            st.write("• 模擬照此策略操作的**歷史勝率與累積報酬率**")
+            st.write("• **Alpha 超額報酬**：有沒有打敗長期抱著不動 (Buy & Hold)")
+            st.write("• **最大回撤 (MDD)**：檢驗最嚴峻行情的最大心理抗壓點")
+
+    st.markdown("---")
+    
+    st.markdown("### ⚡ 30 秒新手快速上手（三步驟）")
+    c_step1, c_step2, c_step3 = st.columns(3)
+    with c_step1:
+        st.info("**步驟 1：選擇或搜尋標的 🔍**\n\n在左側邊欄點選精選 ETF，或直接在文字框輸入任何台股代碼 (如 `2330`、`2609`、`3293`) 或中文公司名稱。")
+    with c_step2:
+        st.info("**步驟 2：切換交易模式 🧭**\n\n根據您的投資風格選擇：\n- 習慣短線動能 ➔ **波段操作模式**\n- 穩健中長線 ➔ **綜合評分模式**\n- 定存族撿便宜 ➔ **存股低接模式**")
+    with c_step3:
+        st.info("**步驟 3：看燈號與停損價 🎯**\n\n切換至上方 **『💡 買賣決策』** 頁籤，綠燈偏多、紅燈減碼；買進前先確認停損價位是否可接受，從容獲利！")
+
+    st.markdown("---")
+    st.markdown("### 📌 當前選定標的快速狀態速覽")
+    st.caption(f"目前左側選中的是：**{meta['name']} (`{meta['symbol']}`)**")
+    
+    sn1, sn2, sn3, sn4 = st.columns(4)
+    with sn1:
+        st.metric("最新價格", f"${meta['current_price']:.2f}", f"{meta['change']:+.2f} ({meta['change_pct']:+.2f}%)", delta_color="inverse")
+    with sn2:
+        st.metric("系統多空評分", f"{int(round(float(summary['score']))):+d} 分", summary['label'].split('(')[0].strip())
+    with sn3:
+        st.metric("防守停損參考價", f"${summary['stop_loss']:.2f}")
+    with sn4:
+        st.metric("波段停利目標價", f"${summary['take_profit']:.2f}")
 
 # ================= TAB 1: Signal & Factors Breakdown =================
 with tab1:
