@@ -438,9 +438,15 @@ with tab5:
                 if not token_input or not user_id_input:
                     st.error("請完整輸入 Token 與 User ID！")
                 else:
-                    ok = save_line_config(token_input, user_id_input, notify_only_on_signals=only_sig, enabled=True)
+                    ok = save_line_config(
+                        token_input,
+                        user_id_input,
+                        dashboard_url="https://tw-stock-tracker-klbx9enyxbnwlfs8ztvapa.streamlit.app/",
+                        notify_only_on_signals=only_sig,
+                        enabled=True
+                    )
                     if ok:
-                        st.success("✅ 設定已成功儲存至本機！")
+                        st.success("✅ 設定已成功儲存！")
                         st.rerun()
                     else:
                         st.error("儲存失敗，請檢查檔案權限。")

@@ -9,6 +9,7 @@ def load_line_config() -> dict:
     """Load LINE Messaging API settings from config file, environment variables, or st.secrets."""
     token = os.environ.get("LINE_CHANNEL_ACCESS_TOKEN", "")
     uid = os.environ.get("LINE_USER_ID", "")
+    url = os.environ.get("DASHBOARD_URL", "") or "https://tw-stock-tracker-klbx9enyxbnwlfs8ztvapa.streamlit.app/"
     
     # Check Streamlit Cloud secrets if available
     try:
@@ -16,12 +17,14 @@ def load_line_config() -> dict:
         if hasattr(st, "secrets"):
             token = token or st.secrets.get("LINE_CHANNEL_ACCESS_TOKEN", "")
             uid = uid or st.secrets.get("LINE_USER_ID", "")
+            url = url or st.secrets.get("DASHBOARD_URL", "")
     except Exception:
         pass
 
     config = {
         "channel_access_token": token,
         "user_id": uid,
+        "dashboard_url": url,
         "notify_only_on_signals": False,
         "enabled": bool(token and uid)
     }
@@ -33,17 +36,20 @@ def load_line_config() -> dict:
                     config["channel_access_token"] = saved["channel_access_token"]
                 if saved.get("user_id"):
                     config["user_id"] = saved["user_id"]
+                if saved.get("dashboard_url"):
+                    config["dashboard_url"] = saved["dashboard_url"]
                 config["notify_only_on_signals"] = saved.get("notify_only_on_signals", False)
                 config["enabled"] = saved.get("enabled", True)
         except Exception:
             pass
     return config
 
-def save_line_config(channel_access_token: str, user_id: str, notify_only_on_signals: bool = False, enabled: bool = True) -> bool:
+def save_line_config(channel_access_token: str, user_id: str, dashboard_url: str = "", notify_only_on_signals: bool = False, enabled: bool = True) -> bool:
     """Save LINE config to local file."""
     config = {
         "channel_access_token": channel_access_token.strip(),
         "user_id": user_id.strip(),
+        "dashboard_url": dashboard_url.strip(),
         "notify_only_on_signals": notify_only_on_signals,
         "enabled": enabled
     }
@@ -97,7 +103,7 @@ def send_line_push_message(text_message: str, channel_access_token: Optional[str
     except Exception as e:
         return False, f"連線至 LINE 失敗: {str(e)}"
 
-def format_daily_report_message(summaries: List[Dict]) -> str:
+def format_daily_report_message(summaries: List[Dict], dashboard_url: Optional[str] = None) -> str:
     """Format multiple stock/ETF summaries into a sleek LINE push notification text."""
     lines = [
         "📊【台股 ETF & 個股 智能追蹤日報】",
@@ -129,7 +135,9 @@ def format_daily_report_message(summaries: List[Dict]) -> str:
         lines.append(f"  停損: ${stop_loss:.2f} ｜ 停利: ${take_profit:.2f}")
         lines.append("────────────────")
         
+    cfg = load_line_config()
+    target_url = dashboard_url or cfg.get("dashboard_url") or "https://tw-stock-tracker-klbx9enyxbnwlfs8ztvapa.streamlit.app/"
     lines.append("💡 點此查看即時互動圖表與回測:")
-    lines.append("👉 http://localhost:8501")
+    lines.append(f"👉 {target_url}")
     
     return "\n".join(lines)
